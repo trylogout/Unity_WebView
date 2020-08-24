@@ -30,13 +30,11 @@ public class SampleWebView : MonoBehaviour
     public string Url;
     public Text status;
     WebViewObject webViewObject;
-
     string mUrl;
-    int hehehe;
+
 
     IEnumerator Start()
     {
-        hehehe = 0;
         webViewObject = (new GameObject("WebViewObject")).AddComponent<WebViewObject>();
         webViewObject.Init(
             // callback
@@ -44,12 +42,6 @@ public class SampleWebView : MonoBehaviour
             {
                 Debug.Log(string.Format("CallFromJS[{0}]", msg));
                 mUrl = msg;
-                // // hehehe = 0;
-                // if (mUrl.Contains("nw3ke")) {
-                // }
-                // else {
-                //   Application.OpenURL(mUrl);
-                // }
                 status.text = msg;
                 status.GetComponent<Animation>().Play();
             },
@@ -70,7 +62,7 @@ public class SampleWebView : MonoBehaviour
             ld: (msg) =>
             {
                 Debug.Log(string.Format("CallOnLoaded[{0}]", msg));
-                // mUrl = msg;
+
 #if UNITY_EDITOR_OSX || !UNITY_ANDROID
                 // NOTE: depending on the situation, you might prefer
                 // the 'iframe' approach.
@@ -135,8 +127,7 @@ public class SampleWebView : MonoBehaviour
         // Add BASIC authentication feature (Android and iOS with WKWebView only) by takeh1k0 · Pull Request #570 · gree/unity-webview
         //webViewObject.SetBasicAuthInfo("id", "password");
 
-        webViewObject.SetMargins(5, 100, 5, 5); // Уменьшил отступы
-        // webViewObject.SetMargins(5, 100, 5, Screen.height / 4);
+        webViewObject.SetMargins(5, 100, 5, 5); //WebView size
         webViewObject.SetVisibility(true);
 
 #if !UNITY_WEBPLAYER && !UNITY_WEBGL
@@ -198,65 +189,32 @@ public class SampleWebView : MonoBehaviour
 #endif
         yield break;
     }
+    
+    private static string StripStartTags(string item){
+      if ((item.Trim().StartsWith("https")) | (item.Trim().StartsWith("http"))){
+         return item;
+         } else return "http://" + item;
+    }
 
     void OnGUI()
     {
-        // GUI.enabled = webViewObject.CanGoBack();
-        // if (GUI.Button(new Rect(10, 10, 80, 80), "<")) {
-        //     webViewObject.GoBack();
-        // }
-        // GUI.enabled = true;
-
-        // GUI.enabled = webViewObject.CanGoForward();
-        // if (GUI.Button(new Rect(100, 10, 80, 80), ">")) {
-        //     webViewObject.GoForward();
-        // }
-        // GUI.enabled = true;
-
-        GUI.TextField(new Rect(200, 10, 300, 80), mUrl + " - " + Url + " - " + hehehe);
-
-        // if (GUI.Button(new Rect(600, 10, 80, 80), "*")) {
-        //     var g = GameObject.Find("WebViewObject");
-        //     if (g != null) {
-        //         Destroy(g);
-        //     } else {
-        //         StartCoroutine(Start());
-        //     }
-        // }
-        // GUI.enabled = true;
-
-        // if (GUI.Button(new Rect(700, 10, 80, 80), "c")) {
-        //     Debug.Log(webViewObject.GetCookies(Url));
-        // }
+        GUI.TextField(new Rect(200, 10, 300, 80), "From: " + Url + " to: " + mUrl);
         GUI.enabled = true;
     }
 
+    // If loading domain != current domain then open it in standart browser
+    // And waiting for key "back" to load previous page
     void Update() {
-      // hehehe += 1;
-      // GUI.TextField(new Rect(200, 10, 300, 80), Url +  " - " + mUrl);
-      // GUI.enabled = true;
       webViewObject.EvaluateJS("if (location) { window.Unity.call('url:' + location.href); }");
 
       if (!(mUrl.Contains("nw3ke")) & !(mUrl.Contains("about:blank"))) {
-        if ((mUrl.StartsWith("http")) ^ (mUrl.StartsWith("https"))){
-          webViewObject.LoadURL(Url.Replace(" ", "%20"));
-          Application.OpenURL(mUrl.Substring(4));
-        } else {
-          webViewObject.LoadURL(Url.Replace(" ", "%20"));
-          Application.OpenURL("http://" + mUrl.Substring(4));}
+        webViewObject.GoBack();
+        string openUrl = StripStartTags(mUrl.Substring(4));
+        Application.OpenURL(openUrl);
       }
       
       if (Input.GetKeyDown(KeyCode.Escape) && webViewObject.CanGoBack()) {
         webViewObject.GoBack();
       }
-
-      // if (mUrl.Contains("nw3ke")) {
-      //   hehehe += 1;
-      //   webViewObject.EvaluateJS("if (location) { window.Unity.call('url:' + location.href); }");
-      // }
-      // else {
-      //   webViewObject.GoBack();
-      //   Application.OpenURL("http://" + mUrl);
-      // }
     }
 }
