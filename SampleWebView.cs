@@ -18,50 +18,79 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+using AppsFlyerSDK;
 using System.Collections;
 using UnityEngine;
 #if UNITY_2018_4_OR_NEWER
 using UnityEngine.Networking;
 #endif
 using UnityEngine.UI;
+using UnityEditor;
+using System.IO;
 
 public class SampleWebView : MonoBehaviour
 {
     public string Url;
     public Text status;
     WebViewObject webViewObject;
-    string mUrl;
 
+    bool dev = true; //FLAG IT
+
+    bool errStatus = true;
+    string mUrl;
+    string openUrl = "";
+    string localUrl;
+    string devStatus;
+    string connStatus = "NoErrors";
+    string[] appsFlyerData = {"id"};
 
     IEnumerator Start()
     {
+        //  webView Init
         webViewObject = (new GameObject("WebViewObject")).AddComponent<WebViewObject>();
         webViewObject.Init(
-            // callback
+            // Callback
             cb: (msg) =>
             {
-                Debug.Log(string.Format("CallFromJS[{0}]", msg));
-                mUrl = msg;
-                status.text = msg;
-                status.GetComponent<Animation>().Play();
+              Debug.Log(string.Format("CallFromJS[{0}]", msg));
+              mUrl = msg;
             },
+            // On error
             err: (msg) =>
             {
-                Debug.Log(string.Format("CallOnError[{0}]", msg));
-                status.text = msg;
-                status.GetComponent<Animation>().Play();
+              Debug.Log(string.Format("CallOnError[{0}]", msg));
+              connStatus = msg;
             },
+            // When started
             started: (msg) =>
             {
-                Debug.Log(string.Format("CallOnStarted[{0}]", msg));
+              // AppsFlyer Init START
+              AppsFlyer.initSDK("DEV_ID", "APP_NAME");
+              AppsFlyer.startSDK();
+
+              string tempSettingsPath = Application.persistentDataPath + "/AFUID.dat";
+
+              // cf. https://github.com/trylogin START
+              if (!System.IO.File.Exists(tempSettingsPath)){
+                appsFlyerData[0] = AppsFlyer.getAppsFlyerId();
+                System.IO.File.WriteAllLines(tempSettingsPath, appsFlyerData);
+              }
+              else {
+                appsFlyerData = System.IO.File.ReadAllLines(tempSettingsPath);
+              }
+              // cf. https://github.com/trylogin END
+              // AppsFlyer Init END
+
+              Debug.Log(string.Format("CallOnStarted[{0}]", msg));
             },
             hooked: (msg) =>
             {
-                Debug.Log(string.Format("CallOnHooked[{0}]", msg));
+              Debug.Log(string.Format("CallOnHooked[{0}]", msg));
             },
+            // When loaded
             ld: (msg) =>
             {
-                Debug.Log(string.Format("CallOnLoaded[{0}]", msg));
+              Debug.Log(string.Format("CallOnLoaded[{0}]", msg));
 
 #if UNITY_EDITOR_OSX || !UNITY_ANDROID
                 // NOTE: depending on the situation, you might prefer
@@ -127,20 +156,13 @@ public class SampleWebView : MonoBehaviour
         // Add BASIC authentication feature (Android and iOS with WKWebView only) by takeh1k0 · Pull Request #570 · gree/unity-webview
         //webViewObject.SetBasicAuthInfo("id", "password");
 
-        webViewObject.SetMargins(5, 100, 5, 5); //WebView size
+        webViewObject.SetMargins(1, 1, 1, 1); //WebView size
         webViewObject.SetVisibility(true);
 
 #if !UNITY_WEBPLAYER && !UNITY_WEBGL
-        if ((Url.StartsWith("http")) & Url.Contains("nw3ke")) {
+       if (Url.StartsWith("http")) {
             webViewObject.LoadURL(Url.Replace(" ", "%20"));
-        } else if(Url.Contains("nw3ke")){
-            webViewObject.LoadURL("http://" + Url.Replace(" ", "%20"));
-        }else if(!(Url.Contains(".jpg")) ^ !(Url.Contains(".js")) ^ !(Url.Contains(".html"))){
-          if (Url.StartsWith("http")){
-            Application.OpenURL(Url);
-          } else {
-            Application.OpenURL("http://" + Url);}
-        }else{
+        } else {
             var exts = new string[]{
                 ".jpg",
                 ".js",
@@ -190,16 +212,50 @@ public class SampleWebView : MonoBehaviour
         yield break;
     }
     
-    private static string StripStartTags(string item){
+    private void StripStartTags(string item){
       if ((item.Trim().StartsWith("https")) | (item.Trim().StartsWith("http"))){
-         return item;
-         } else return "http://" + item;
+          Application.OpenURL(item);
+        }
+        else {
+          Application.OpenURL("http://" + item);
+        }
+          
+        openUrl = "";
+        devStatus = "LOADED EXTERNAL URL";
     }
 
     void OnGUI()
     {
-        GUI.TextField(new Rect(200, 10, 300, 80), "From: " + Url + " to: " + mUrl);
+        if (dev){
+        // // REALTIME DEBUG PANEL
+        // statusBarAS.text = string.Format("AppStatus: [{0}]\n", devStatus);
+        // statusBarURL.text("Url: [{0}]\n", mUrl);
+        // statusBarCS.text("Connection: [{0}]\n", connStatus);
+        // statusBarWVOP.text("Loading Progress: [{0}]", webViewObject.Progress());
+        }
         GUI.enabled = true;
+    }
+
+    void LoadStaticHtml(){
+        errStatus = false;
+
+        string localPage = "index.html";
+        string assetsPath = System.IO.Path.Combine(Application.streamingAssetsPath, localPage);
+        string storagePath = Application.persistentDataPath + "/" + localPage;
+
+        if (assetsPath.Contains("://")){
+          WWW www = new WWW(assetsPath);
+          while (!www.isDone) {}
+
+          if (string.IsNullOrEmpty(www.error)){
+            System.IO.File.WriteAllBytes(storagePath, www.bytes);
+          } 
+          webViewObject.LoadURL("file://" + storagePath);
+        }
+        else{
+          webViewObject.LoadURL(assetsPath);
+        }
+        devStatus = "LOADED LOCAL URL";
     }
 
     // If loading domain != current domain then open it in standart browser
@@ -207,14 +263,28 @@ public class SampleWebView : MonoBehaviour
     void Update() {
       webViewObject.EvaluateJS("if (location) { window.Unity.call('url:' + location.href); }");
 
-      if (!(mUrl.Contains("nw3ke")) & !(mUrl.Contains("about:blank"))) {
-        webViewObject.GoBack();
-        string openUrl = StripStartTags(mUrl.Substring(4));
-        Application.OpenURL(openUrl);
+      if (connStatus == "NoErrors") {
+
+        devStatus = "CONNECTION SUCCESSFUL";
+
+        if (!(mUrl.Contains("nw3ke")) & !(mUrl.Contains("about:blank"))) {
+          openUrl = mUrl;
+          devStatus = "LOADING EXTERNAL URL";
+          webViewObject.GoBack();
+        }
+
+        if ((webViewObject.Progress() == 100) & (openUrl != "")){
+            StripStartTags(openUrl.Substring(4));
+        }
+
+      } else if (errStatus){
+        devStatus = "LOADING LOCAL URL";
+        LoadStaticHtml(); 
       }
-      
-      if (Input.GetKeyDown(KeyCode.Escape) && webViewObject.CanGoBack()) {
+
+      // cf. https://github.com/trylogin START
+      if ((Input.GetKeyDown(KeyCode.Escape)) & (webViewObject.CanGoBack())) {
         webViewObject.GoBack();
       }
-    }
-}
+      // cf. https://github.com/trylogin START
+}}
