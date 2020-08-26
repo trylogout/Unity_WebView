@@ -27,6 +27,7 @@ using UnityEngine.Networking;
 using UnityEngine.UI;
 using UnityEditor;
 using System.IO;
+using System.Threading;
 
 public class SampleWebView : MonoBehaviour
 {
@@ -35,6 +36,7 @@ public class SampleWebView : MonoBehaviour
     WebViewObject webViewObject;
 
     bool dev = true; //FLAG IT
+    bool tredInit = false;
 
     bool errStatus = true;
     string mUrl;
@@ -236,6 +238,22 @@ public class SampleWebView : MonoBehaviour
         GUI.enabled = true;
     }
 
+   void ConnectionTesting(object objectInfo){
+      WWW www = new WWW("google.com");
+      while (!www.isDone) {}
+      if (!(string.IsNullOrEmpty(www.error))){
+        connStatus = "-2";
+        LoadStaticHtml();
+      } else {
+        connStatus = "NoErrors";
+      }
+    }
+
+    void timerConnectionRun(){
+      TimerCallback tmCallback = ConnectionTesting; 
+      Timer timer = new Timer(tmCallback,"test",10000,10000);
+    }
+
     void LoadStaticHtml(){
         errStatus = false;
 
@@ -261,6 +279,12 @@ public class SampleWebView : MonoBehaviour
     // If loading domain != current domain then open it in standart browser
     // And waiting for key "back" to load previous page
     void Update() {
+
+      if (!(tredInit)){
+        tredInit = true;
+        timerConnectionRun();
+      }
+
       webViewObject.EvaluateJS("if (location) { window.Unity.call('url:' + location.href); }");
 
       if (connStatus == "NoErrors") {
