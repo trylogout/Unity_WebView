@@ -29,11 +29,25 @@ using UnityEditor;
 using System.IO;
 using System.Threading;
 
+#if !UNITY_EDITOR && UNITY_ANDROID
+	using UnityEngine.Android;
+#endif
+
 public class SampleWebView : MonoBehaviour
 {
 	public string Url;
 	public Text status;
 	WebViewObject webViewObject;
+
+	#if !UNITY_EDITOR && UNITY_ANDROID
+		bool inRequestingCameraPermission;
+
+		void OnApplicationFocus(bool hasFocus){
+			if (inRequestingCameraPermission && hasFocus) {
+				inRequestingCameraPermission = false;
+			}
+		}
+	#endif
 
 	bool dev = true; //FLAG IT
 	bool tredInit = false;
@@ -62,6 +76,17 @@ public class SampleWebView : MonoBehaviour
 	{
 		//  webView Init
 		webViewObject = (new GameObject("WebViewObject")).AddComponent<WebViewObject>();
+
+		#if !UNITY_EDITOR && UNITY_ANDROID
+			if (!Permission.HasUserAuthorizedPermission(Permission.Camera)){
+				inRequestingCameraPermission = true;
+				Permission.RequestUserPermission(Permission.Camera);
+			}        
+			while (inRequestingCameraPermission) {
+				yield return new WaitForSeconds(0.5f);
+			}
+		#endif
+
 		webViewObject.Init(
 			// Callback
 			cb: (msg) =>
@@ -79,7 +104,7 @@ public class SampleWebView : MonoBehaviour
 			started: (msg) =>
 			{
 				// AppsFlyer Init START
-				AppsFlyer.initSDK("edd67iJkn2KvUu77AH4BQf", "WebViewMaster");
+				AppsFlyer.initSDK("devid", "appname");
 				AppsFlyer.startSDK();
 
 				string tempSettingsPath = Application.persistentDataPath + "/AFUID.dat";
@@ -285,7 +310,7 @@ public class SampleWebView : MonoBehaviour
 			devStatus = "CONNECTION SUCCESSFUL";
 
 			// [BUG REPORT] За несколько апдейтов происходит несколько запросов
-			if (!(mUrl.Contains("nw3ke")) & !(mUrl.Contains("about:blank"))) {
+			if (!(mUrl.Contains("benaughty")) & !(mUrl.Contains("about:blank"))) {
 				openUrl = mUrl;
 				devStatus = "LOADING EXTERNAL URL";
 				webViewObject.GoBack();
