@@ -49,9 +49,8 @@ public class SampleWebView : MonoBehaviour
 		}
 	#endif
 
-	bool dev = true; //FLAG IT
-	bool tredInit = false;
-
+	// For Debug Panel
+	public bool dev = true;
 	int StripStartTagsCount = 0;
 	int UpdateCount = 0;
 	int timerCount = 0;
@@ -60,7 +59,6 @@ public class SampleWebView : MonoBehaviour
 	public Text tag3;
 	public Text tag4;
 
-	bool openingExtUrl = false;
 	bool errStatus = true;
 	string mUrl;
 	string openUrl = "";
@@ -69,7 +67,7 @@ public class SampleWebView : MonoBehaviour
 	string connStatus = "NoErrors";
 	string[] appsFlyerData = {"id"};
 
-	public float waitTime = 2f;
+	public float waitTime = 1f;
     float timer;
 
 	IEnumerator Start()
@@ -131,10 +129,7 @@ public class SampleWebView : MonoBehaviour
 			{
 				Debug.Log(string.Format("CallOnLoaded[{0}]", msg));
 
-#if UNITY_EDITOR_OSX || !UNITY_ANDROID
-				// NOTE: depending on the situation, you might prefer
-				// the 'iframe' approach.
-				// cf. https://github.com/gree/unity-webview/issues/189
+#if UNITY_EDITOR_OSX || (!UNITY_ANDROID && !UNITY_WEBPLAYER && !UNITY_WEBGL)
 #if true
 				webViewObject.EvaluateJS(@"
 				  if (window && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.unityControl) {
@@ -172,32 +167,28 @@ public class SampleWebView : MonoBehaviour
 				  }
 				");
 #endif
+#elif UNITY_WEBPLAYER || UNITY_WEBGL
+                webViewObject.EvaluateJS(
+                    "window.Unity = {" +
+                    "   call:function(msg) {" +
+                    "       parent.unityWebView.sendMessage('WebViewObject', msg)" +
+                    "   }" +
+                    "};");
 #endif
-				//webViewObject.EvaluateJS(@"Unity.call('ua=' + navigator.userAgent)");
 			},
-			//ua: "custom user agent string",
 #if UNITY_EDITOR
 			separated: false,
 #endif
 			enableWKWebView: true);
-			//TimerCallback tmCallback = new TimerCallback(ConnectionTesting); 
-			//Timer timer = new Timer(tmCallback,null,0,10000);
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
 		webViewObject.bitmapRefreshCycle = 1;
 #endif
-		// cf. https://github.com/gree/unity-webview/pull/512
-		// Added alertDialogEnabled flag to enable/disable alert/confirm/prompt dialogs. by KojiNakamaru · Pull Request #512 · gree/unity-webview
-		//webViewObject.SetAlertDialogEnabled(false);
 
-		// cf. https://github.com/gree/unity-webview/pull/550
-		// introduced SetURLPattern(..., hookPattern). by KojiNakamaru · Pull Request #550 · gree/unity-webview
-		//webViewObject.SetURLPattern("", "^https://.*youtube.com", "^https://.*google.com");
-
-		// cf. https://github.com/gree/unity-webview/pull/570
-		// Add BASIC authentication feature (Android and iOS with WKWebView only) by takeh1k0 · Pull Request #570 · gree/unity-webview
-		//webViewObject.SetBasicAuthInfo("id", "password");
-
-		webViewObject.SetMargins(0, 120, 0, 0); //WebView size
+		if (dev){
+			webViewObject.SetMargins(0, 120, 0, 0); //WebView size
+		} else {
+			webViewObject.SetMargins(0, 0, 0, 0); //WebView size
+		}
 		webViewObject.SetVisibility(true);
 
 #if !UNITY_WEBPLAYER && !UNITY_WEBGL
@@ -207,16 +198,15 @@ public class SampleWebView : MonoBehaviour
 			var exts = new string[]{
 				".jpg",
 				".js",
-				".html"  // should be last
+				".html"
 			};
 			foreach (var ext in exts) {
 				var url = Url.Replace(".html", ext);
 				var src = System.IO.Path.Combine(Application.streamingAssetsPath, url);
 				var dst = System.IO.Path.Combine(Application.persistentDataPath, url);
 				byte[] result = null;
-				if (src.Contains("://")) {  // for Android
+				if (src.Contains("://")) {
 #if UNITY_2018_4_OR_NEWER
-					// NOTE: a more complete code that utilizes UnityWebRequest can be found in https://github.com/gree/unity-webview/commit/2a07e82f760a8495aa3a77a23453f384869caba7#diff-4379160fa4c2a287f414c07eb10ee36d
 					var unityWebRequest = UnityWebRequest.Get(src);
 					yield return unityWebRequest.SendWebRequest();
 					result = unityWebRequest.downloadHandler.data;
@@ -241,41 +231,27 @@ public class SampleWebView : MonoBehaviour
 		} else {
 			webViewObject.LoadURL("StreamingAssets/" + Url.Replace(" ", "%20"));
 		}
-		webViewObject.EvaluateJS(
-			"parent.$(function() {" +
-			"   window.Unity = {" +
-			"       call:function(msg) {" +
-			"           parent.unityWebView.sendMessage('WebViewObject', msg)" +
-			"       }" +
-			"   };" +
-			"});");
+
+
 #endif
 		yield break;
 	}
 	
-	private void StripStartTags(string item){
-		StripStartTagsCount++;
-		if ((item.Trim().StartsWith("https")) | (item.Trim().StartsWith("http"))){
-			Application.OpenURL(item);
-		}
-		else {
-			Application.OpenURL("http://" + item);
-		}
- 
-		openUrl = "";
-		devStatus = "LOADED EXTERNAL URL";
-	}
-
 	void OnGUI()
 	{
-		tag1.text = string.Format("Call Open Site[{0}]", StripStartTagsCount);
-		tag2.text = string.Format("Call Update[{0}]", UpdateCount);
-		tag3.text = string.Format("Status[{0}]", devStatus);
-		tag4.text = string.Format("Timer Status[{0}]", timerCount);
+		if (dev){
+			tag1.text = string.Format("Call Open Site[{0}]", StripStartTagsCount);
+			tag2.text = string.Format("Call Update[{0}]", UpdateCount);
+			tag3.text = string.Format("Status[{0}]", devStatus);
+			tag4.text = string.Format("Timer Status[{0}]", timerCount);
+		}
 		GUI.enabled = true;
 	}
 
-	void LoadStaticHtml(){
+	// Try to open local page from StreamingAssets.
+	// That function copy index.html page from StreamingAssets to persistance path
+	// And trying to open it in webView
+	void LoadLocalPage(){
 		errStatus = false;
 
 		string localPage = "index.html";
@@ -297,7 +273,31 @@ public class SampleWebView : MonoBehaviour
 		devStatus = "LOADED LOCAL URL";
 	}
 
-	// If loading domain != current domain then open it in standart browser
+	// Check domain name. If it's inner domain - returns true
+	bool notInnerUrl(string openUrl){
+		if (!(openUrl.Contains("nw3ke")) & !(openUrl.Contains("about:blank")) & !(openUrl.Contains(Application.persistentDataPath))){
+			return true;
+		} else {
+			return false;
+		}
+	}
+
+	// Try to open url in external browser
+	private void LoadExternalPage(string item){
+		StripStartTagsCount++;
+		if ((item.Trim().StartsWith("https")) | (item.Trim().StartsWith("http"))){
+			Application.OpenURL(item);
+		}
+		else {
+			Application.OpenURL("http://" + item);
+		}
+ 
+		openUrl = "";
+		devStatus = "LOADED EXTERNAL URL";
+	}
+
+	// Check internet connection every 1 second and try to open mUrl
+	// If loading domain != current domain and it not local then open it in standart browser
 	// And waiting for key "back" to load previous page
 	void Update() {
 
@@ -305,38 +305,27 @@ public class SampleWebView : MonoBehaviour
 
 		webViewObject.EvaluateJS("if (location) { window.Unity.call('url:' + location.href); }");
 
-		if (connStatus == "NoErrors") {
-
-			devStatus = "CONNECTION SUCCESSFUL";
-
-			// [BUG REPORT] За несколько апдейтов происходит несколько запросов
-			if (!(mUrl.Contains("benaughty")) & !(mUrl.Contains("about:blank"))) {
-				openUrl = mUrl;
-				devStatus = "LOADING EXTERNAL URL";
-				webViewObject.GoBack();
-			}
-
-			if ((webViewObject.Progress() == 100) & (openUrl != "") & (!openingExtUrl)){
-				StripStartTags(openUrl.Substring(4));
-				connStatus = "LoadingEXT";
-			}
-
-		} else if (errStatus){
-			devStatus = "LOADING LOCAL URL";
-			LoadStaticHtml(); 
-		}
-
 		timer += Time.deltaTime;
 
         if (timer > waitTime) { 
 			timerCount++;
             if (Application.internetReachability == NetworkReachability.NotReachable) {
-                //Debug.Log ("No internet access");
 				connStatus = "-2";
-				LoadStaticHtml();
+				LoadLocalPage();
             } else {
-                //Debug.Log ("Internet connection OK");
 				connStatus = "NoErrors";
+				devStatus = "CONNECTION SUCCESSFUL";
+
+				if (notInnerUrl(mUrl)) {
+					openUrl = mUrl;
+					devStatus = "LOADING EXTERNAL URL";
+					webViewObject.GoBack();
+				}
+
+				if ((webViewObject.Progress() == 100) & (openUrl != "")){
+					LoadExternalPage(openUrl.Substring(4));
+					connStatus = "LoadingEXT";
+				}
             }
             timer = 0f;
         }
