@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head> </head>
+
+<body>
+    <div id="main">
+        <div class="fof">
+            <h4>OOPS ...</h4>
+            <br />
+            <h4>Check</h4>
+            <h5>Internet Connection</h5>
+        </div>
+    </div>
+</body>
+<div class="box">
+    <a href="#" class="btn btn-white btn-animation-1">Reload?</a>
+</div>
+
+<style>
+    * {
+        transition: all 0.6s;
+    }
+    
+    html {
+        height: 100%;
+    }
+    
+    body {
+        font-family: "Lato", sans-serif;
+        color: #888;
+        margin: 0;
+    }
+    
+    #main {
+        display: table;
+        width: 100%;
+        height: 100vh;
+        text-align: center;
+    }
+    
+    .fof {
+        display: table-cell;
+        vertical-align: middle;
+    }
+    
+    .fof h4 {
+        padding-left: 12px;
+        font-size: 25px;
+        display: inline-block;
+    }
+    
+    .fof h5 {
+        padding-top: -25px;
+        font-size: 25px;
+        display: inline-block;
+        padding-right: 12px;
+        animation: type 0.5s alternate infinite;
+    }
+    
+    @keyframes type {
+        from {
+            box-shadow: inset -3px 0px 0px #888;
+        }
+        to {
+            box-shadow: inset -3px 0px 0px transparent;
+        }
+    }
+    
+    .button {
+        width: 400px;
+        height: 100px;
+        background: #888;
+        margin-bottom: 25px;
+        border-radius: 32px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.1s ease-in-out;
+    }
+    
+    .box {
+        position: absolute;
+        top: 80%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+    
+    .btn:link,
+    .btn:visited {
+        text-decoration: none;
+        text-transform: uppercase;
+        position: relative;
+        top: 0;
+        left: 0;
+        padding: 20px 40px;
+        border-radius: 100px;
+        display: inline-block;
+        transition: all .5s;
+    }
+    
+    .btn-white {
+        background: #888;
+        color: #fff;
+    }
+    
+    .btn:hover {
+        box-shadow: 0px 10px 10px rgba(0, 0, 0, 0.2);
+        transform: translateY(-3px);
+    }
+    
+    .btn:active {
+        box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.2) transform: translateY(-1px);
+    }
+    
+    .btn-bottom-animation-1 {
+        animation: comeFromBottom 1s ease-out .8s;
+    }
+    
+    .btn::after {
+        content: "";
+        text-decoration: none;
+        text-transform: uppercase;
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        border-radius: 100px;
+        display: inline-block;
+        z-index: -1;
+        transition: all .5s;
+    }
+    
+    .btn-white::after {
+        background: #888;
+    }
+    
+    .btn-animation-1:hover::after {
+        transform: scaleX(1.4) scaleY(1.6);
+        opacity: 0;
+    }
+    
+    @keyframes comeFromBottom {
+        0% {
+            opacity: 0;
+            transform: translateY(40px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+</html>

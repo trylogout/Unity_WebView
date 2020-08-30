@@ -18,6 +18,8 @@
  * 3. This notice may not be removed or altered from any source distribution.
  */
 
+#region Header
+
 using AppsFlyerSDK;
 using System.Collections;
 using UnityEngine;
@@ -28,36 +30,38 @@ using UnityEngine.UI;
 using UnityEditor;
 using System.IO;
 using System.Threading;
+using UnityEngine.Android;
 
-#if !UNITY_EDITOR && UNITY_ANDROID
-	using UnityEngine.Android;
-#endif
+#endregion Header
 
 public class SampleWebView : MonoBehaviour
 {
+
+#region Fields
+
 	public string Url;
 	public Text status;
 	WebViewObject webViewObject;
 
-	#if !UNITY_EDITOR && UNITY_ANDROID
-		bool inRequestingCameraPermission;
+	bool inRequestingCameraPermission;
 
-		void OnApplicationFocus(bool hasFocus){
-			if (inRequestingCameraPermission && hasFocus) {
-				inRequestingCameraPermission = false;
-			}
+	void OnApplicationFocus(bool hasFocus){
+		if (inRequestingCameraPermission && hasFocus) {
+			inRequestingCameraPermission = false;
 		}
-	#endif
+	}
 
 	// For Debug Panel
 	public bool dev = true;
 	int StripStartTagsCount = 0;
 	int UpdateCount = 0;
 	int timerCount = 0;
+	int cameraCount = 0;
 	public Text tag1;
 	public Text tag2;
 	public Text tag3;
 	public Text tag4;
+	public Text tag5;
 
 	bool errStatus = true;
 	string mUrl;
@@ -70,20 +74,21 @@ public class SampleWebView : MonoBehaviour
 	public float waitTime = 1f;
     float timer;
 
+#endregion Fields
+
 	IEnumerator Start()
 	{
 		//  webView Init
 		webViewObject = (new GameObject("WebViewObject")).AddComponent<WebViewObject>();
 
-		#if !UNITY_EDITOR && UNITY_ANDROID
-			if (!Permission.HasUserAuthorizedPermission(Permission.Camera)){
-				inRequestingCameraPermission = true;
-				Permission.RequestUserPermission(Permission.Camera);
-			}        
-			while (inRequestingCameraPermission) {
-				yield return new WaitForSeconds(0.5f);
-			}
-		#endif
+		if (!Permission.HasUserAuthorizedPermission(Permission.Camera)){
+			inRequestingCameraPermission = true;
+			Permission.RequestUserPermission(Permission.Camera);
+			cameraCount++;
+		}        
+		while (inRequestingCameraPermission) {
+			yield return new WaitForSeconds(0.5f);
+		}
 
 		webViewObject.Init(
 			// Callback
@@ -102,7 +107,7 @@ public class SampleWebView : MonoBehaviour
 			started: (msg) =>
 			{
 				// AppsFlyer Init START
-				AppsFlyer.initSDK("devid", "appname");
+				AppsFlyer.initSDK("DEV_ID", "APP_NAME");
 				AppsFlyer.startSDK();
 
 				string tempSettingsPath = Application.persistentDataPath + "/AFUID.dat";
@@ -225,14 +230,38 @@ public class SampleWebView : MonoBehaviour
 				}
 			}
 		}
+
+		webViewObject.EvaluateJS(
+		"window.Unity = {" +
+		"   call:function(msg) {" +
+		"       parent.unityWebView.sendMessage('WebViewObject', msg)" +
+		"   }" +
+		"};");
 #else
 		if (Url.StartsWith("http")) {
 			webViewObject.LoadURL(Url.Replace(" ", "%20"));
 		} else {
 			webViewObject.LoadURL("StreamingAssets/" + Url.Replace(" ", "%20"));
 		}
-
-
+		webViewObject.EvaluateJS(@"
+			if (window && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.unityControl) {
+			window.Unity = {
+				call: function(msg) {
+				window.webkit.messageHandlers.unityControl.postMessage(msg);
+				}
+			}
+			} else {
+			window.Unity = {
+				call: function(msg) {
+				var iframe = document.createElement('IFRAME');
+				iframe.setAttribute('src', 'unity:' + msg);
+				document.documentElement.appendChild(iframe);
+				iframe.parentNode.removeChild(iframe);
+				iframe = null;
+				}
+			}
+			}
+		");
 #endif
 		yield break;
 	}
@@ -244,6 +273,7 @@ public class SampleWebView : MonoBehaviour
 			tag2.text = string.Format("Call Update[{0}]", UpdateCount);
 			tag3.text = string.Format("Status[{0}]", devStatus);
 			tag4.text = string.Format("Timer Status[{0}]", timerCount);
+			tag5.text = string.Format("Camera Alert[{0}]", cameraCount);
 		}
 		GUI.enabled = true;
 	}
@@ -275,7 +305,7 @@ public class SampleWebView : MonoBehaviour
 
 	// Check domain name. If it's inner domain - returns true
 	bool notInnerUrl(string openUrl){
-		if (!(openUrl.Contains("nw3ke")) & !(openUrl.Contains("about:blank")) & !(openUrl.Contains(Application.persistentDataPath))){
+		if (!(openUrl.Contains("benaughty")) & !(openUrl.Contains("about:blank")) & !(openUrl.Contains(Application.persistentDataPath))){
 			return true;
 		} else {
 			return false;

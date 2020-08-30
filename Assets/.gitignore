@@ -1,0 +1,10 @@
+Library
+Temp
+*.csproj
+*.sln
+*.pidb
+*.meta
+*.userprefs
+**/*.xcodeproj/*
+!**/*.xcodeproj/project.pbxproj
+!**/*.xcworkspace/contents.xcworkspacedata
