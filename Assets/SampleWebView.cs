@@ -30,7 +30,6 @@ using UnityEngine.UI;
 using UnityEditor;
 using System.IO;
 using System.Threading;
-using UnityEngine.Android;
 
 #endregion Header
 
@@ -41,22 +40,17 @@ public class SampleWebView : MonoBehaviour
 
 	public string Url;
 	public Text status;
+	public string devkey;
+	public string appID;
 	WebViewObject webViewObject;
-
-	bool inRequestingCameraPermission;
-
-	void OnApplicationFocus(bool hasFocus){
-		if (inRequestingCameraPermission && hasFocus) {
-			inRequestingCameraPermission = false;
-		}
-	}
+	bool firstRedirect = true;
+	string redirectableSite = "2youapp.work";
 
 	// For Debug Panel
 	public bool dev = true;
 	int StripStartTagsCount = 0;
 	int UpdateCount = 0;
 	int timerCount = 0;
-	int cameraCount = 0;
 	public Text tag1;
 	public Text tag2;
 	public Text tag3;
@@ -66,29 +60,35 @@ public class SampleWebView : MonoBehaviour
 	bool errStatus = true;
 	string mUrl;
 	string openUrl = "";
-	string localUrl;
 	string devStatus;
 	string connStatus = "NoErrors";
 	string[] appsFlyerData = {"id"};
 
 	public float waitTime = 1f;
     float timer;
+	string whoIsFirst = "";
 
 #endregion Fields
 
 	IEnumerator Start()
 	{
+		AppsFlyer.initSDK(devkey, appID);
+		AppsFlyer.startSDK();
+
+		string tempSettingsPath = Application.persistentDataPath + "/AFUID.dat";
+
+		if (!System.IO.File.Exists(tempSettingsPath)){
+			appsFlyerData[0] = AppsFlyer.getAppsFlyerId();
+			System.IO.File.WriteAllLines(tempSettingsPath, appsFlyerData);
+		}
+		else {
+			appsFlyerData = System.IO.File.ReadAllLines(tempSettingsPath);
+		}
+
+		Url += appsFlyerData[0];
+
 		//  webView Init
 		webViewObject = (new GameObject("WebViewObject")).AddComponent<WebViewObject>();
-
-		if (!Permission.HasUserAuthorizedPermission(Permission.Camera)){
-			inRequestingCameraPermission = true;
-			Permission.RequestUserPermission(Permission.Camera);
-			cameraCount++;
-		}        
-		while (inRequestingCameraPermission) {
-			yield return new WaitForSeconds(0.5f);
-		}
 
 		webViewObject.Init(
 			// Callback
@@ -106,23 +106,6 @@ public class SampleWebView : MonoBehaviour
 			// When started
 			started: (msg) =>
 			{
-				// AppsFlyer Init START
-				AppsFlyer.initSDK("DEV_ID", "APP_NAME");
-				AppsFlyer.startSDK();
-
-				string tempSettingsPath = Application.persistentDataPath + "/AFUID.dat";
-
-				// cf. https://github.com/trylogin START
-				if (!System.IO.File.Exists(tempSettingsPath)){
-					appsFlyerData[0] = AppsFlyer.getAppsFlyerId();
-					System.IO.File.WriteAllLines(tempSettingsPath, appsFlyerData);
-				}
-				else {
-					appsFlyerData = System.IO.File.ReadAllLines(tempSettingsPath);
-				}
-				// cf. https://github.com/trylogin END
-				// AppsFlyer Init END
-
 				Debug.Log(string.Format("CallOnStarted[{0}]", msg));
 			},
 			hooked: (msg) =>
@@ -243,25 +226,6 @@ public class SampleWebView : MonoBehaviour
 		} else {
 			webViewObject.LoadURL("StreamingAssets/" + Url.Replace(" ", "%20"));
 		}
-		webViewObject.EvaluateJS(@"
-			if (window && window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.unityControl) {
-			window.Unity = {
-				call: function(msg) {
-				window.webkit.messageHandlers.unityControl.postMessage(msg);
-				}
-			}
-			} else {
-			window.Unity = {
-				call: function(msg) {
-				var iframe = document.createElement('IFRAME');
-				iframe.setAttribute('src', 'unity:' + msg);
-				document.documentElement.appendChild(iframe);
-				iframe.parentNode.removeChild(iframe);
-				iframe = null;
-				}
-			}
-			}
-		");
 #endif
 		yield break;
 	}
@@ -269,11 +233,9 @@ public class SampleWebView : MonoBehaviour
 	void OnGUI()
 	{
 		if (dev){
-			tag1.text = string.Format("Call Open Site[{0}]", StripStartTagsCount);
-			tag2.text = string.Format("Call Update[{0}]", UpdateCount);
-			tag3.text = string.Format("Status[{0}]", devStatus);
-			tag4.text = string.Format("Timer Status[{0}]", timerCount);
-			tag5.text = string.Format("Camera Alert[{0}]", cameraCount);
+			tag1.text = string.Format("mURL: [{0}]", mUrl);
+			tag2.text = string.Format("URL: [{0}]", Url);
+			tag3.text = string.Format("rURL[{0}]", redirectableSite);
 		}
 		GUI.enabled = true;
 	}
@@ -305,8 +267,22 @@ public class SampleWebView : MonoBehaviour
 
 	// Check domain name. If it's inner domain - returns true
 	bool notInnerUrl(string openUrl){
-		if (!(openUrl.Contains("benaughty")) & !(openUrl.Contains("about:blank")) & !(openUrl.Contains(Application.persistentDataPath))){
+		if (!(openUrl.Contains(redirectableSite)) & 
+			!(openUrl.Contains("2youapp.work")) & 
+			!(openUrl.Contains("about:blank")) & 
+			!(openUrl.Contains(Application.persistentDataPath))){
+
+			// Если это не первый редирект сайт и это не пустой сайт и это не 2youapp и не внутренний тогда
+			if (firstRedirect) {
+				firstRedirect = false;
+				redirectableSite = openUrl.Split(new char[] {'/'})[2];
+				redirectableSite = redirectableSite.Replace("www.", "");
+
+				return false;
+			}
+
 			return true;
+
 		} else {
 			return false;
 		}
@@ -361,8 +337,8 @@ public class SampleWebView : MonoBehaviour
         }
 
 		// cf. https://github.com/trylogin START
-			if ((Input.GetKeyDown(KeyCode.Escape)) & (webViewObject.CanGoBack())) {
-				webViewObject.GoBack();
+		if ((Input.GetKeyDown(KeyCode.Escape)) & (webViewObject.CanGoBack())) {
+			webViewObject.GoBack();
 		}
 		// cf. https://github.com/trylogin START
 	}
